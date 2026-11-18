@@ -1,15 +1,14 @@
 # pqc-lab
 
-This is a hands-on lab for post-quantum cryptography (PQC) with OpenSSL 3.5+ on macOS that is designed to help with an organisations assessment on PQC readiness. 
+This is a hands-on lab for post-quantum cryptography (PQC) with OpenSSL 3.5+ on macOS that is designed to help with an organisation's assessment on PQC readiness.
 
 Each step has the exact command, the real captured output, why it worked or failed, and what that means for a PQC readiness assessment.
 
 No custom code and no benchmarking will be applied, only official tools and their documented options. Tool versions are given with each result, because newer releases may behave differently since this is a fast-evolving topic.
 
-**All keys in this lab are throwaway test keys that protect nothing.** The `keys/` and `logs/` folders
-(and any `*-key.pem`) are excluded from git by `.gitignore`, so you create your own keys and logs as you go.
+**All keys in this lab are throwaway test keys that protect nothing.** The `keys/` and `logs/` folders are not part of this repo; you create your own keys and logs as you go. If you put your copy under git, exclude `keys/`, `logs/` and `.venv/`.
 
-The example run as well as the tools are as of Nov 2026.
+The example run as well as the tools are as of 18 Nov 2026.
 
 ## Get the lab
 
@@ -59,7 +58,7 @@ On macOS, `/usr/bin/python3` is Apple's system Python (3.9.6 on the test Mac), w
 python3.13 -m venv .venv   # any Python 3.10+, not /usr/bin/python3
 ```
 
-- `-m venv .venv` creates a private Python environment in the hidden folder `.venv/`. Packages installed there stay inside the lab and do not touch the rest of your Mac. `.venv/` is excluded from git.
+- `-m venv .venv` creates a private Python environment in the hidden folder `.venv/`. Packages installed there stay inside the lab and do not touch the rest of your Mac. Keep `.venv/` out of git.
 
 **2. Install the pinned packages** from the `requirements.txt` that ships with this repo:
 
@@ -104,7 +103,7 @@ export OPENSSL=/opt/homebrew/opt/openssl@3/bin/openssl
 
 We are going to run that command in every new terminal window we use, and it will be noted on the associated command set.
 
-Expected output (captured 16 Nov 2026; terminal only, not saved to a file):
+Expected output (captured 18 Nov 2026; terminal only, not saved to a file):
 
 ```
 OpenSSL 3.5.9 29 Sep 2026 (Library: OpenSSL 3.5.9 29 Sep 2026)
@@ -126,7 +125,7 @@ To keep Homebrew and every brew-installed tool current, run `brew update && brew
 
 ## Algorithms we are going to use
 
-We are going to use two algorithms in our lab, namely `ML-DSA-65` and `X25519MLKEM768`
+We are going to use two algorithms in our lab, namely `ML-DSA-65` and `X25519MLKEM768`.
 
 - **ML-DSA** is a signature algorithm, so it belongs in certificates and we are going to see more on that in Lab 1. The official `genpkey` example uses ML-DSA-65, which is NIST security category 3.
 
