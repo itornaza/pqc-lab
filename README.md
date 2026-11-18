@@ -1,5 +1,7 @@
 # pqc-lab
 
+![[pqc-polarbear.jpg]]
+
 This is a hands-on lab for post-quantum cryptography (PQC) with OpenSSL 3.5+ on macOS that is designed to help with an organisation's assessment on PQC readiness.
 
 Each step has the exact command, the real captured output, why it worked or failed, and what that means for a PQC readiness assessment.
