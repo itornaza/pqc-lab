@@ -1,6 +1,6 @@
 # pqc-lab
 
-![[pqc-polarbear.jpg]]
+![Polar bear in a post-quantum lab](pqc-polarbear.jpg)
 
 This is a hands-on lab for post-quantum cryptography (PQC) with OpenSSL 3.5+ on macOS that is designed to help with an organisation's assessment on PQC readiness.
 
