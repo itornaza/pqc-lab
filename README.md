@@ -131,7 +131,7 @@ We are going to use two algorithms in our lab, namely `ML-DSA-65` and `X25519MLK
 
 - **X25519MLKEM768** is a TLS 1.3 hybrid key-agreement *group*, not a certificate algorithm. OpenSSL 3.5 generates those keys during the handshake, so they cannot be put in an X.509 certificate ([EVP_PKEY-MLX-KEM](https://docs.openssl.org/master/man7/EVP_PKEY-MLX-KEM/)).
 
-That split matches [NIST IR 8547](https://csrc.nist.gov/pubs/ir/8547/final): migrate key establishment first because of harvest-now-decrypt-later (HNDL), and treat ML-KEM-768 as the default KEM (category 3). The hybrid stays FIPS-validatable because one approved input (ML-KEM) is enough.
+That split matches [NIST IR 8547](https://csrc.nist.gov/pubs/ir/8547/final): migrate key establishment first because of harvest-now-decrypt-later (HNDL), and treat ML-KEM-768 as the default KEM (category 3).
 
 ### Hybrid key agreement, and why signatures can wait longer
 
@@ -141,12 +141,11 @@ A hybrid such as `X25519MLKEM768` runs a classical key agreement (X25519) and a 
 
 A secondary benefit is transition: old clients that do not speak ML-KEM can still negotiate something, and the classical half can be dropped later once the PQ algorithm is trusted and widely deployed. There is also a compliance reason: [IR 8547](https://csrc.nist.gov/pubs/ir/8547/final)’s hybrid rule says a combination stays FIPS-validatable when at least one approved algorithm contributes (here, ML-KEM).
 
-Signatures are a different beast. They authenticate (who you are talking to) and protect integrity. A recorded handshake from today does not become forgeable in the past just because ML-DSA was not used. The pressure on signatures is “when an attacker can break the *current*
-signature and impersonate someone,” plus anything that must stay verifiable for a long time (firmware, document signing, roots of trust). Those long-lived signatures are more urgent than a short-lived TLS server certificate, but still generally behind confidentiality for HNDL.
+Signatures are a different beast. They authenticate (who you are talking to) and protect integrity. A recorded handshake from today does not become forgeable in the past just because ML-DSA was not used. The pressure on signatures is “when an attacker can break the *current* signature and impersonate someone,” plus anything that must stay verifiable for a long time (firmware, document signing, roots of trust). Those long-lived signatures are more urgent than a short-lived TLS server certificate, but still generally behind confidentiality for HNDL.
 
 The takeaway here is to use PQC or hybrid key agreement now, against recording; schedule PQC signatures on a longer ramp, however, sooner rather than later where the signature itself has a long lifetime.
 
-This lab follows that split: 
+This lab follows that split:
 - ML-DSA-65 in the certificate (Lab 1),
 - `X25519MLKEM768` in the handshake (Lab 2).
 
@@ -156,13 +155,9 @@ We are going to create an ML-DSA-65 key pair, then use the private key to issue 
 
 This lab is about *signatures*, not confidentiality. The certificate will later prove the TLS server’s identity (Lab 2). ML-DSA-65 is the post-quantum signature in that certificate: the public key goes in Subject Public Key Info, and the same private key signs the certificate (self-signed) and, in Lab 2, the TLS 1.3 CertificateVerify message. We use ML-DSA here so the lab shows a PQ signature, but [IR 8547](https://csrc.nist.gov/pubs/ir/8547/final) does not treat TLS server signatures as the HNDL-urgent migration. A short-lived localhost cert is the less urgent half; firmware- or document-signing keys with a long lifetime would be the signature cases to move sooner. We do *not* put a KEM or the hybrid group into this certificate.
 
-Commands from
-[openssl-genpkey(1)](https://docs.openssl.org/3.5/man1/openssl-genpkey/)
-and
-[openssl-req(1)](https://docs.openssl.org/3.5/man1/openssl-req/).
-`genpkey` documents that ML-DSA and ML-KEM support was added in OpenSSL 3.5.
+Commands from [openssl-genpkey(1)](https://docs.openssl.org/3.5/man1/openssl-genpkey/) and [openssl-req(1)](https://docs.openssl.org/3.5/man1/openssl-req/). `genpkey` documents that ML-DSA and ML-KEM support was added in OpenSSL 3.5.
 
-#### Run the following Commands
+#### Run the following commands
 
 ```sh
 export OPENSSL=/opt/homebrew/opt/openssl@3/bin/openssl
@@ -187,18 +182,16 @@ What each command does in more detail:
 
 - `"$OPENSSL" genpkey -algorithm ML-DSA-65 -out keys/ml-dsa-key.pem` — generate a new ML-DSA-65 key pair and write it as a PKCS#8 private key. The matching public key is stored inside that file; we do not create a separate public-key file. Prints nothing on success.
 
-- `"$OPENSSL" req -new -x509` — build a certificate signing request *and* immediately turn it into a self-signed certificate (the `-x509` switch). Signing uses the private key from `-key`, because a signature needs the private half, not the public half alone. The certificate’s Subject Public Key
-  Info field then displays that public key.
+- `"$OPENSSL" req -new -x509` — build a certificate signing request *and* immediately turn it into a self-signed certificate (the `-x509` switch). Signing uses the private key from `-key`, because a signature needs the private half, not the public half alone. The certificate’s Subject Public Key Info field then displays that public key.
   - `-out keys/ml-dsa-cert.pem` — write the certificate here.
   - `-days 365` — validity of one year from the issue time.
   - `-subj "/CN=localhost"` — set the subject common name (and, because this is self-signed, the issuer is the same).
   - `-addext "subjectAltName = DNS:localhost"` — add a SAN. Modern TLS clients match the name against the SAN, not only `CN`.
   - `-batch` — do not prompt for subject fields; we already passed `-subj`.
-  
+
 - `"$OPENSSL" pkey -in keys/ml-dsa-key.pem -text -noout | head` — read the private key and print a text dump (`-text`) without writing a new PEM (`-noout`). `head` keeps the start of the dump (algorithm name) and avoids flooding the terminal with hex.
 
-- `"$OPENSSL" x509 -in keys/ml-dsa-cert.pem -noout -text` — read the certificate and print
-  its fields: subject, issuer, dates, SAN, public-key algorithm, and signature algorithm.
+- `"$OPENSSL" x509 -in keys/ml-dsa-cert.pem -noout -text` — read the certificate and print its fields: subject, issuer, dates, SAN, public-key algorithm, and signature algorithm.
 
 Check: the certificate text should name ML-DSA-65 for both the public key and the signature. These are disposable lab keys; do not reuse them elsewhere.
 
@@ -216,8 +209,7 @@ ML-DSA-65 Private-Key:
 seed:
 ```
 
-followed by `priv:` and `pub:` hex dumps. Please note that these bytes are unique per run
-and are supposed to be secret.
+followed by `priv:` and `pub:` hex dumps. Please note that these bytes are unique per run and are supposed to be secret.
 
 `"$OPENSSL" x509 -noout -text` includes these fields:
 
@@ -243,10 +235,7 @@ This lab is the HNDL-urgent half: confidentiality of the session key. `X25519MLK
 
 On OpenSSL 3.5+, both ends offer X25519MLKEM768 by default (NEWS 3.5.0). We still pass `-groups X25519MLKEM768` so the negotiated group is explicit.
 
-[openssl-s_server(1)](https://docs.openssl.org/3.5/man1/openssl-s_server/)
-and
-[openssl-s_client(1)](https://docs.openssl.org/3.5/man1/openssl-s_client/)
-both accept `-groups`. Default listen port is 4433.
+[openssl-s_server(1)](https://docs.openssl.org/3.5/man1/openssl-s_server/) and [openssl-s_client(1)](https://docs.openssl.org/3.5/man1/openssl-s_client/) both accept `-groups`. Default listen port is 4433.
 
 #### Terminal 1 (server)
 
@@ -269,7 +258,7 @@ What the server command does:
 - `-key keys/ml-dsa-key.pem` — use the matching private key to sign the handshake (CertificateVerify). That is authentication, not key agreement.
 - `-groups X25519MLKEM768` — offer only this TLS 1.3 key-agreement group for the handshake’s shared secret.
 
-The server stays running until you stop it (Ctrl-c). It writes no new files; it only uses the two PEM files from Lab 1.
+The server stays running until you stop it (Ctrl-C). It writes no new files; it only uses the two PEM files from Lab 1.
 
 #### Terminal 2 (client)
 
@@ -322,7 +311,7 @@ DONE
 
 In this lab we are going to scan the server that we have set up in Lab 2 with nmap, testssl.sh and sslyze, and compare what each external scanner reports about a post-quantum endpoint. As a reminder, our server has an ML-DSA-65 certificate and accepts only the hybrid `X25519MLKEM768` group.
 
-If you have closed the server from the previous lab, run the server again
+If you have closed the server from the previous lab, run the server again:
 
 ```sh
 export OPENSSL=/opt/homebrew/opt/openssl@3/bin/openssl
@@ -334,7 +323,7 @@ export OPENSSL=/opt/homebrew/opt/openssl@3/bin/openssl
 
 - **`"$OPENSSL" s_client`** is part of OpenSSL (`"$OPENSSL" s_client ...`). It is a test TLS client that does a real handshake using the OpenSSL 3.5.9 library. In this lab it is our **reference client**, the one we know supports ML-DSA signatures and the `X25519MLKEM768` group. When a scanner reports nothing, `s_client` tells us whether the server is fine and the gap is in the scanner.
 
-### 1. NMAP (`ssl-enum-ciphers`)
+### 1. nmap (`ssl-enum-ciphers`)
 
 **nmap** is a separate network scanner. Its `ssl-enum-ciphers` script builds its own ClientHello in Lua and does not use OpenSSL to connect, so keep in mind that it only offers the algorithms the script itself knows.
 
@@ -361,7 +350,7 @@ nmap picks scripts by service. Port 4433 isn't a standard TLS port, so nmap gues
 
 #### Run 2 - with service detection on
 
-Note: The following command can be slow because `s_server -www` handles one connection at a time and doesn't answer most of nmap's non-TLS probes, so each one waits for a timeout.
+Note: the following command can be slow because `s_server -www` handles one connection at a time and doesn't answer most of nmap's non-TLS probes, so each one waits for a timeout.
 
 ```sh
 nmap -sV -p 4433 --script ssl-enum-ciphers 127.0.0.1 -oN logs/nmap-4433.txt
@@ -428,7 +417,7 @@ tls_choose_sigalg:no suitable signature algorithm
 #### Lessons learnt
 
 1. **False negative.** Against a PQC-only endpoint, nmap 7.993's `ssl-enum-ciphers` returns no result at all. An assessor reading only the scan output could wrongly conclude "no TLS on this port".
-2. **Check the other side,** eventually the server log, not the scanner, showed the real cause.
+2. **Check the other side.** The server log, not the scanner, showed the real cause.
 3. **Change one variable at a time** before you conclude anything.
 4. **Confirm with a real client,** `s_client` (Lab 2) connected normally to the same server.
 
@@ -436,13 +425,12 @@ tls_choose_sigalg:no suitable signature algorithm
 
 Keep the hybrid-only group and swap the certificate for a classic ECDSA P-256 one. First stop the ML-DSA server in terminal 1 (Ctrl-C), because only one server can listen on port 4433.
 
-> **Caution: unencrypted private keys.** `-nodes` writes `keys/ec-key.pem` without a passphrase, and `genpkey` in Lab 1 wrote `keys/ml-dsa-key.pem` the same way. Anyone who can read these files has the private key. That's acceptable here only because they are throwaway lab keys on your own
-> Mac and protect nothing real. Check that only you can read them (`ls -l keys/*-key.pem` should show `-rw-------`, or run `chmod 600 keys/*-key.pem`). Never commit them to git, and never reuse them anywhere. In production, keep keys encrypted with a passphrase from a secrets manager, or in an HSM or cloud key store, so the private key is never on disk in the clear. The lab uses unencrypted keys only so `s_server` can restart without a passphrase prompt.
+> **Caution: unencrypted private keys.** `-nodes` writes `keys/ec-key.pem` without a passphrase, and `genpkey` in Lab 1 wrote `keys/ml-dsa-key.pem` the same way. Anyone who can read these files has the private key. That's acceptable here only because they are throwaway lab keys on your own Mac and protect nothing real. Check that only you can read them (`ls -l keys/*-key.pem` should show `-rw-------`, or run `chmod 600 keys/*-key.pem`). Never commit them to git, and never reuse them anywhere. In production, keep keys encrypted with a passphrase from a secrets manager, or in an HSM or cloud key store, so the private key is never on disk in the clear. The lab uses unencrypted keys only so `s_server` can restart without a passphrase prompt.
 
 ```sh
 export OPENSSL=/opt/homebrew/opt/openssl@3/bin/openssl
 
-# 1. Generate ECDSA keypair
+# 1. Generate an ECDSA key pair and self-signed certificate
 "$OPENSSL" req -new -x509 -newkey ec \
   -pkeyopt ec_paramgen_curve:P-256 -nodes \
   -keyout keys/ec-key.pem -out keys/ec-cert.pem -days 365 -subj "/CN=localhost" \
@@ -484,11 +472,11 @@ Nmap done: 1 IP address (1 host up) scanned in 1.55 seconds
 
 #### Conclusion
 
-Changing only the certificate fixed the scan, so the ML-DSA signature was the only blocker. nmap 7.993 can confirm a hybrid ML-KEM key exchange (the urgent harvest-now decrypt-later half), but returns nothing when the server has an ML-DSA certificate.
+Changing only the certificate fixed the scan, so the ML-DSA signature was the only blocker. nmap 7.993 can confirm a hybrid ML-KEM key exchange (the urgent harvest-now-decrypt-later half), but returns nothing when the server has an ML-DSA certificate.
 
-### 2. TESTSSL
+### 2. testssl.sh
 
-We are going to investigate our second scanner, testssl.sh and we are running it against the original ML-DSA server from Lab 2. First stop the ECDSA server from Run 4 in terminal 1 (Ctrl-C), because only one server can listen on port 4433. Then spin up the ML-DSA server again.
+We are going to investigate our second scanner, testssl.sh, and we are running it against the original ML-DSA server from Lab 2. First stop the ECDSA server from Run 4 in terminal 1 (Ctrl-C), because only one server can listen on port 4433. Then spin up the ML-DSA server again.
 
 ```sh
 export OPENSSL=/opt/homebrew/opt/openssl@3/bin/openssl
@@ -548,13 +536,12 @@ TLSv1.3 (listed by strength)
 ```
 
 - **testssl.sh sees the whole PQC picture.** It reports TLS 1.3 only, the hybrid KEM `X25519MLKEM768` (shown as `ECDH/MLKEM`), and the ML-DSA-65 signature algorithm and certificate. That's exactly where nmap returned nothing.
-- **Client simulations show the compatibility cost.** Only the OpenSSL 3.5 client connects. Every simulated browser, mobile, Java and older OpenSSL client fails, because none of them accepts an ML-DSA certificate and most don't offer the hybrid group either. An ML-DSA-only server is not deployable for public clients today. That's why signatures migrate later
-  (or with dual certificates), while hybrid key exchange can go first.
+- **Client simulations show the compatibility cost.** Only the OpenSSL 3.5 client connects. Every simulated browser, mobile, Java and older OpenSSL client fails, because none of them accepts an ML-DSA certificate and most don't offer the hybrid group either. An ML-DSA-only server is not deployable for public clients today. That's why signatures migrate later (or with dual certificates), while hybrid key exchange can go first.
 - **Grade T has nothing to do with PQC.** It's capped by the self-signed chain and the name mismatch (we scanned `127.0.0.1`, while the certificate says `localhost`). Always read the grade-cap reasons.
 - **No other weaknesses.** Every vulnerability test (Heartbleed, ROBOT, POODLE and the rest) is "not vulnerable", as expected for a TLS 1.3-only server.
-- The log header says testssl.sh used OpenSSL 3.5.9 (29 Sep 2026). That's correct: after a `brew upgrade`, `"$OPENSSL" version` reports 3.5.9.
+- The log header says testssl.sh used OpenSSL 3.5.9 (29 Sep 2026). That matches the `"$OPENSSL" version` output in Requirements.
 
-### 3. SSLYZE
+### 3. sslyze
 
 #### Run 1 - scan ML-DSA
 
@@ -578,7 +565,7 @@ First we are going to scan the original ML-DSA server (ML-DSA-65 certificate, `-
 
 The JSON shows `ERROR_NO_CONNECTIVITY`, so sslyze ran no scans at all.
 
-Why: sslyze 6.3.1 uses `nassl` 5.4.0, which bundles its own OpenSSL. In our venv that's **OpenSSL 1.1.1w (11 Sep 2023)**, found with 
+Why: sslyze 6.3.1 uses `nassl` 5.4.0, which bundles its own OpenSSL. In our venv that's **OpenSSL 1.1.1w (11 Sep 2023)**, found with:
 
 ```sh
 strings .venv/lib/python3.13/site-packages/nassl/_nassl.cpython-313-darwin.so | grep -i "openssl 1\."
@@ -671,7 +658,7 @@ otool -L "$(command -v nmap)" | grep -i -E "ssl|crypto"
 
 As a note, write the library and version in every assessment report next to each tool's result, so a reader can tell "server has no PQC" apart from "tool can't see PQC".
 
-## Lab 4 — produce a CBOM
+## Lab 4 — Produce a CBOM
 
 Our goal here is to produce a CycloneDX cryptographic bill of materials (CBOM), a machine-readable inventory of the crypto assets in a system. It is the kind of artefact the [Dutch PQC Migration Handbook](https://english.aivd.nl/documents/2024/12/3/the-pqc-migration-handbook)'s diagnosis step expects.
 
@@ -679,7 +666,7 @@ While Lab 3 checked what the server **presents on the network**, Lab 4 checks wh
 
 For this task we are going to use **cbomkit-theia v1.1.2** (13 May 2026), part of CBOMkit, donated to the Post-Quantum Cryptography Alliance (PQCA) by IBM Research. It scans a directory or container image for certificates, keys, secrets and `openssl.cnf` files, and outputs CycloneDX 1.6.
 
-### Build 
+### Build
 
 `cbomkit-theia` must be built from source with Go 1.26.8 or newer (from `go.mod`). The `GOPATH`/`GOCACHE` exports keep Go's downloads inside the lab folder.
 
@@ -744,7 +731,7 @@ INFO[0000] Problematic CA detection completed            checked=0 flagged=0
 ### Why — the log, line by line
 
 - `numberOfDetectedCertificates=2`: it **found** both certificates.
-- `ERRO ... x.509 certificate has unknown algorithm`: it couldn't identify ML-DSA, so it **dropped** that certificate, logged an error and still wrote a normal-looking CBOM. 
+- `ERRO ... x.509 certificate has unknown algorithm`: it couldn't identify ML-DSA, so it **dropped** that certificate, logged an error and still wrote a normal-looking CBOM.
 - `Secret detected file=keys/ml-dsa-key.pem type=private-key`: the secrets plugin **saw** the ML-DSA key, yet it isn't in the CBOM either, and **nothing is logged** about dropping it. That's the worst case: silent.
 - `x509: malformed certificate` (twice): two other files looked like certificates but weren't. This log doesn't say which. A `--log-level debug` rerun would show them, but it doesn't change the finding.
 - `javasecurity` was off because there was no input BOM, and no `openssl.cnf` was found. Both are expected for this folder.
